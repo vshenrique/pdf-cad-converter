@@ -1,0 +1,35 @@
+# Dependencias
+node_modules/
+
+# Logs
+logs/*.log
+*.log
+
+# Ambiente
+.env
+
+# Temporarios
+*.tmp
+*.temp
+os.tmpdir()
+
+# PM2
+.pm2/
+
+# Sistema Windows
+Thumbs.db
+Desktop.ini
+
+# Sistema Linux
+*~
+.DS_Store
+
+# Backup e edit
+*.bak
+*.old
+*-old.*
+
+# Poppler (se instalado localmente)
+tools/poppler/
+*.zip
+*.msi

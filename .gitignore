@@ -51,3 +51,5 @@ tools/poppler/
 .idea/
 *.swp
 *.swo
+
+SESSION-REPORT.md

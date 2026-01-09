@@ -38,10 +38,32 @@ async function waitForFileReady(filePath, maxWait = 30000) {
 }
 
 /**
+ * Remove JPEGs antigos de um PDF antes de reprocessar
+ * Isso evita que paginas antigas permanecam quando o PDF e atualizado
+ */
+async function cleanupOldImages(baseName, outputFolder) {
+    try {
+        const files = await fs.readdir(outputFolder);
+        const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_\\d+\\.jpg$`);
+
+        for (const file of files) {
+            if (pattern.test(file)) {
+                const filePath = path.join(outputFolder, file);
+                await fs.unlink(filePath);
+            }
+        }
+    } catch (err) {
+        // Erro ao limpar arquivos antigos - nao e critico, apenas log
+        logger.debug(`Aviso: nao foi possivel limpar imagens antigas de ${baseName}: ${err.message}`);
+    }
+}
+
+/**
  * Processa um arquivo PDF
  */
 async function processFile(filePath, config, retries = 0) {
     const fileName = path.basename(filePath);
+    const baseName = path.basename(filePath, path.extname(filePath));
 
     // Verifica se já está processando
     if (processingFiles.has(filePath)) {
@@ -61,6 +83,9 @@ async function processFile(filePath, config, retries = 0) {
             return;
         }
 
+        // Limpa imagens antigas antes de processar (evita paginas sobrando)
+        await cleanupOldImages(baseName, config.outputFolder);
+
         // Processa o PDF
         const result = await processPdf(
             filePath,
@@ -71,7 +96,10 @@ async function processFile(filePath, config, retries = 0) {
         if (result.success) {
             logger.info(`PDF processado com sucesso: ${fileName} (${result.processedPages}/${result.totalPages} páginas)`);
         } else {
-            logger.error(`Erro ao processar PDF ${fileName}: ${result.error}`);
+            // Log detalhado do erro
+            const errorMsg = result.error || 'Erro desconhecido';
+            logger.error(`Erro ao processar PDF ${fileName}: ${errorMsg}`);
+            logger.error(`Resultado completo: ${JSON.stringify(result)}`);
 
             // Retry se configurado
             if (retries < config.maxRetries) {
@@ -118,6 +146,19 @@ function startWatcher(config) {
         // Processa apenas PDFs
         if (path.extname(filePath).toLowerCase() === '.pdf') {
             logger.info(`Novo PDF detectado: ${path.basename(filePath)}`);
+            processFile(filePath, config).catch(err => {
+                logger.error(`Erro no processamento: ${err.message}`);
+            });
+        }
+    });
+
+    // Evento: arquivo alterado (substituido ou atualizado)
+    watcher.on('change', (filePath) => {
+        // Processa apenas PDFs
+        if (path.extname(filePath).toLowerCase() === '.pdf') {
+            logger.info(`PDF alterado/substituido: ${path.basename(filePath)}`);
+            // Limpa o mapa de processamento para permitir reprocessamento
+            processingFiles.delete(filePath);
             processFile(filePath, config).catch(err => {
                 logger.error(`Erro no processamento: ${err.message}`);
             });

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  pdf-converter:
+    build: .
+    container_name: pdf-converter
+    restart: unless-stopped
+
+    # Volumes para mapear pastas locais
+    volumes:
+      # Pasta onde os PDFs sao colocados para conversao
+      - ./watch:/app/watch
+      # Pasta onde os JPEGs convertidos serao salvos
+      - ./output:/app/output
+      # Logs persistentes
+      - ./logs:/app/logs
+      # Arquivo .env local (opcional, sobrescreve variaveis)
+      - ./.env:/app/.env:ro
+
+    environment:
+      - WATCH_FOLDER=/app/watch
+      - OUTPUT_FOLDER=/app/output
+      - LOG_FOLDER=/app/logs
+      - LOG_LEVEL=info
+      - JPEG_QUALITY=90
+      - DPI=300
+
+    # Recursos limitados
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    # Comentarios: Se quiser usar rede do Protheus
+    # networks:
+    #   - protheus-network
+
+# Opcional: rede compartilhada com Protheus
+# networks:
+#   protheus-network:
+#     external: true

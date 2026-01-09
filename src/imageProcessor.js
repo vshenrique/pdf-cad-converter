@@ -21,36 +21,31 @@ async function processImage(inputPath, outputPath, config) {
         // Detecta orientação: landscape se largura > altura
         const isLandscape = width > height;
 
-        // Calcula dimensões de redimensionamento
-        // Queremos que a imagem caiba dentro de A4 portrait mantendo proporção
+        // Processa imagem com sharp
+        let pipeline = sharp(inputPath);
+
+        // Redimensiona para caber dentro de A4 portrait mantendo proporção
+        // Se for landscape, considera a orientação rotacionada
         let resizeWidth, resizeHeight;
 
         if (isLandscape) {
-            // Para landscape, a largura original será limitada pela altura do A4
-            // e a altura original será limitada pela largura do A4
-            const scaleWidth = targetHeight / width;
-            const scaleHeight = targetWidth / height;
-            const scale = Math.min(scaleWidth, scaleHeight);
-
+            // Para landscape, após rotação, a largura original será a altura final
+            // e a altura original será a largura final
+            // Precisamos escalar para caber em A4 portrait (width=2480, height=3508)
+            const scale = Math.min(targetHeight / width, targetWidth / height);
             resizeWidth = Math.round(width * scale);
             resizeHeight = Math.round(height * scale);
         } else {
-            // Já está portrait, escala normalmente
-            const scaleWidth = targetWidth / width;
-            const scaleHeight = targetHeight / height;
-            const scale = Math.min(scaleWidth, scaleHeight);
-
+            // Já está portrait
+            const scale = Math.min(targetWidth / width, targetHeight / height);
             resizeWidth = Math.round(width * scale);
             resizeHeight = Math.round(height * scale);
         }
 
-        // Processa imagem com sharp
-        let pipeline = sharp(inputPath);
-
-        // Redimensiona mantendo proporção
+        // Redimensiona mantendo proporção (fit: inside garante que não exceda as dimensões)
         pipeline = pipeline.resize(resizeWidth, resizeHeight, {
             fit: 'inside',
-            withoutEnlargement: false // Permite ampliar se necessário
+            withoutEnlargement: false
         });
 
         // Se era landscape, rotaciona para portrait
@@ -58,15 +53,26 @@ async function processImage(inputPath, outputPath, config) {
             pipeline = pipeline.rotate(90);
         }
 
-        // Extende para tamanho exato do A4 (adiciona bordas brancas se necessário)
+        // Obtém metadados após redimensionamento
         const metadataAfterResize = await pipeline.metadata();
-        pipeline = pipeline.extend({
-            top: Math.floor((targetHeight - metadataAfterResize.height) / 2),
-            bottom: Math.ceil((targetHeight - metadataAfterResize.height) / 2),
-            left: Math.floor((targetWidth - metadataAfterResize.width) / 2),
-            right: Math.ceil((targetWidth - metadataAfterResize.width) / 2),
-            background: { r: 255, g: 255, b: 255, alpha: 1 }
-        });
+
+        // Extende para tamanho exato do A4 (adiciona bordas brancas se necessário)
+        // Usa Math.max(0, ...) para evitar valores negativos
+        const top = Math.max(0, Math.floor((targetHeight - metadataAfterResize.height) / 2));
+        const bottom = Math.max(0, Math.ceil((targetHeight - metadataAfterResize.height) / 2));
+        const left = Math.max(0, Math.floor((targetWidth - metadataAfterResize.width) / 2));
+        const right = Math.max(0, Math.ceil((targetWidth - metadataAfterResize.width) / 2));
+
+        // Só aplica extend se necessário (se não já está no tamanho exato)
+        if (top > 0 || bottom > 0 || left > 0 || right > 0) {
+            pipeline = pipeline.extend({
+                top,
+                bottom,
+                left,
+                right,
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+            });
+        }
 
         // Salva como JPEG
         await pipeline
@@ -108,15 +114,19 @@ async function processPdfImages(inputPaths, baseName, outputFolder, config) {
         const inputPath = inputPaths[i];
         const outputPath = path.join(outputFolder, `${baseName}_${i + 1}.jpg`);
 
-        const result = await processImage(inputPath, outputPath, config);
-        results.push(result);
-
-        // Remove arquivo temporário após processamento
         try {
-            await fs.unlink(inputPath);
-        } catch (err) {
-            // Ignore error ao deletar temp
+            const result = await processImage(inputPath, outputPath, config);
+            results.push(result);
+        } catch (error) {
+            results.push({
+                success: false,
+                error: error.message,
+                inputPath,
+                stack: error.stack
+            });
         }
+        // Nota: Arquivos temporários NÃO são deletados aqui
+        // São deletados no pdfConverter.js apenas se todos os processamentos forem bem-sucedidos
     }
 
     return results;

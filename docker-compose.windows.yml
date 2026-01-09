@@ -1,0 +1,80 @@
+# PDF CAD Converter - Docker Compose for Windows
+#
+# This is a Windows-specific docker-compose configuration.
+# Modify paths according to your environment.
+#
+# USAGE:
+#   1. Copy this file to docker-compose.yml OR run with: docker-compose -f docker-compose.windows.yml up -d
+#   2. Update paths below to match your Windows folders
+#   3. Run: docker-compose up -d --build
+
+version: '3.8'
+
+services:
+  pdf-converter:
+    build: .
+    container_name: pdf-converter
+    hostname: pdf-converter
+    restart: unless-stopped
+
+    # ============================================================
+    # VOLUME CONFIGURATION - Choose ONE option below
+    # ============================================================
+
+    # OPTION A: Local Windows folders (recommended for single machine)
+    # Use this if Protheus runs on the same Windows machine
+    volumes:
+      - C:/pdf-converter/watch:/app/watch
+      - C:/pdf-converter/output:/app/output
+      - C:/pdf-converter/logs:/app/logs
+
+    # OPTION B: Network share (SMB/UNC path)
+    # Use this if PDFs and JPEGs are on a network file server
+    # Uncomment below and comment out OPTION A
+    # volumes:
+    #   - //fileserver/slt/cad-input:/app/watch
+    #   - //fileserver/slt/cad_jpeg:/app/output
+    #   - C:/pdf-converter/logs:/app/logs
+
+    # OPTION C: Mixed - Local watch, network output
+    # Use this if PDFs are local but JPEGs go to network share
+    # Uncomment below and comment out other options
+    # volumes:
+    #   - C:/pdf-converter/watch:/app/watch
+    #   - //fileserver/slt/cad_jpeg:/app/output
+    #   - C:/pdf-converter/logs:/app/logs
+
+    # ============================================================
+    # END VOLUME CONFIGURATION
+    # ============================================================
+
+    environment:
+      - WATCH_FOLDER=/app/watch
+      - OUTPUT_FOLDER=/app/output
+      - LOG_FOLDER=/app/logs
+      - LOG_LEVEL=info
+      - JPEG_QUALITY=90
+      - DPI=300
+      - NODE_ENV=production
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    # Health check (optional)
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('fs').existsSync('/app/output')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Optional: Network configuration
+# Uncomment if Protheus is also running in Docker
+# networks:
+#   pdf-converter:
+#     driver: bridge

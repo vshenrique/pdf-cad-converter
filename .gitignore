@@ -1,20 +1,31 @@
 # Dependencias
 node_modules/
+package-lock.json
 
 # Logs
-logs/*.log
+logs/
 *.log
 
 # Ambiente
 .env
+.env.local
+.env.production
+
+# Pastas de trabalho locais
+watch/
+output/
 
 # Temporarios
 *.tmp
 *.temp
+/tmp/
 os.tmpdir()
 
 # PM2
 .pm2/
+
+# Docker
+.env.docker
 
 # Sistema Windows
 Thumbs.db
@@ -33,3 +44,9 @@ Desktop.ini
 tools/poppler/
 *.zip
 *.msi
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

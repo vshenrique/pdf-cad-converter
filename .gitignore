@@ -14,6 +14,7 @@ logs/
 # Pastas de trabalho locais
 watch/
 output/
+docker-test/
 
 # Temporarios
 *.tmp

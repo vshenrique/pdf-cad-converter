@@ -1,10 +1,45 @@
-# PDF CAD Converter - Deploy com Docker
+# PDF CAD Converter - Deploy com Docker (Linux)
 
 ## Requisitos
 - Docker 20.10+ instalado
-- Docker Compose v2.0+
+- Docker Compose v2.0+ (comando: `docker compose`)
 
-## Deploy Rapido
+## Instalação do Docker
+
+### Ubuntu/Debian
+```bash
+# 1. Atualizar pacotes
+sudo apt-get update
+
+# 2. Instalar dependências
+sudo apt-get install -y ca-certificates curl gnupg
+
+# 3. Adicionar chave GPG oficial do Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 4. Adicionar repositório
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# 5. Instalar Docker
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 6. Adicionar usuário ao grupo docker (importante!)
+sudo usermod -aG docker $USER
+
+# 7. Fazer logout e login novamente para aplicar grupo
+
+# 8. Verificar instalação
+docker --version
+docker compose version
+```
+
+## Deploy Rápido
 
 ### 1. Prepare o ambiente
 ```bash
@@ -16,7 +51,7 @@ mkdir -p watch output logs
 ```
 
 ### 2. Configure (opcional)
-Edite `.env` se precisar sobrescrever configuracoes:
+Edite `.env` se precisar sobrescrever configurações:
 ```bash
 WATCH_FOLDER=/app/watch
 OUTPUT_FOLDER=/app/output
@@ -28,16 +63,37 @@ DPI=300
 ### 3. Build e Start
 ```bash
 # Build e inicia em um comando
-docker-compose up -d --build
+docker compose up -d --build
 
-# Ou apenas start se ja buildou
-docker-compose up -d
+# Ou apenas start se já buildou
+docker compose up -d
 ```
 
 ### 4. Verifique o status
 ```bash
-docker-compose ps
-docker-compose logs -f pdf-converter
+docker compose ps
+docker compose logs -f pdf-converter
+```
+
+## Teste Local (Ambiente de Desenvolvimento)
+
+Para testar sem afetar o ambiente de produção:
+
+```bash
+# 1. Criar pastas de teste
+mkdir -p docker-test/watch docker-test/output docker-test/logs
+
+# 2. Usar docker-compose de teste
+docker compose -f docker-compose.test.yml up -d --build
+
+# 3. Copiar PDF para teste
+cp arquivo.pdf docker-test/watch/
+
+# 4. Verificar resultado
+ls -la docker-test/output/
+
+# 5. Ver logs
+docker compose logs -f pdf-converter
 ```
 
 ## Uso
@@ -52,51 +108,54 @@ ls output/
 # desenho_1.jpg, desenho_2.jpg, etc
 ```
 
-### Comandos Uteis
+### Comandos Úteis
 ```bash
-# Ver logs
-docker-compose logs -f pdf-converter
+# Ver logs (Docker Compose v2)
+docker compose logs -f pdf-converter
 
 # Reiniciar
-docker-compose restart pdf-converter
+docker compose restart pdf-converter
 
 # Parar
-docker-compose down
+docker compose down
 
-# Atualizar apos mudanca no codigo
-docker-compose up -d --build
+# Atualizar após mudança no código
+docker compose up -d --build
+
+# Ver status dos containers
+docker compose ps
 ```
 
-## Deploy Producao
+## Deploy Produção
 
 ### Auto-restart
-O container ja esta configurado com `restart: unless-stopped`.
+O container já está configurado com `restart: unless-stopped`.
 
 ### Limitar recursos
-Ja configurado no docker-compose.yml:
-- Memoria maxima: 512MB
-- Memoria reservada: 256MB
+Já configurado no docker-compose.yml:
+- Memória máxima: 512MB
+- Memória reservada: 256MB
 
 ### Logs persistentes
-O volume `./logs` mantem os logs mesmo apos reiniciar o container.
+O volume `./logs` mantém os logs mesmo após reiniciar o container.
 
 ### Montagem de rede
 
-**Opcao A: Pastas locais**
+**Opção A: Pastas locais**
 ```yaml
 volumes:
   - ./watch:/app/watch
   - ./output:/app/output
 ```
 
-**Opcao B: Pasta de rede (NFS/SMB)**
+**Opção B: Pasta de rede (NFS/SMB)**
 ```yaml
 volumes:
   - /mnt/server/share/pdf:/app/watch
   - /mnt/server/share/jpeg:/app/output
 ```
 
-**Opcao C: Docker named volume**
+**Opção C: Docker named volume**
 ```yaml
 volumes:
   - pdf-data:/app/data
@@ -110,7 +169,7 @@ volumes:
       o: bind
 ```
 
-## Integracao com Protheus
+## Integração com Protheus
 
 ### Linux Host
 Protheus pode acessar: `/opt/pdf-converter/output`
@@ -132,34 +191,44 @@ networks:
 
 ## Troubleshooting
 
-### Container nao inicia
+### Permission denied
 ```bash
-# Verifique os logs
-docker-compose logs pdf-converter
+# Adicionar usuário ao grupo docker
+sudo usermod -aG docker $USER
 
-# Entre no container para debug
-docker-compose run pdf-converter sh
+# Fazer logout e login
+# Ou executar:
+newgrp docker
 ```
 
-### Arquivos nao sao convertidos
+### Container não inicia
 ```bash
-# Verifique permissoes
+# Verifique os logs
+docker compose logs pdf-converter
+
+# Entre no container para debug
+docker compose run pdf-converter sh
+```
+
+### Arquivos não são convertidos
+```bash
+# Verifique permissões
 ls -la watch/ output/
 
 # Verifique se o container consegue escrever
-docker-compose exec pdf-converter ls -la /app/output
+docker compose exec pdf-converter ls -la /app/output
 ```
 
 ### Atualizar imagem
 ```bash
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 ```
 
 ## Backup dos Dados
 
-Os arquivos convertidos estao no volume `./output` - faca backup regular desta pasta.
+Os arquivos convertidos estão no volume `./output` - faça backup regular desta pasta.
 
 ```bash
 # Backup simples
@@ -169,9 +238,9 @@ tar -czf pdf-converter-backup-$(date +%Y%m%d).tar.gz output/
 rsync -av output/ /backup/location/
 ```
 
-## Seguranca
+## Segurança
 
-### Execute como usuario nao-root
+### Execute como usuário não-root
 Adicione ao Dockerfile:
 ```dockerfile
 RUN addgroup -g 1001 -S nodejs
@@ -191,3 +260,11 @@ read_only: true
 tmpfs:
   - /tmp
 ```
+
+## Notas Importantes
+
+### Docker Compose v1 vs v2
+- **v1**: `docker-compose` (hífen)
+- **v2**: `docker compose` (sem hífen) - **Recomendado**
+
+Esta documentação usa comandos da v2. Se estiver usando v1, substitua `docker compose` por `docker-compose`.

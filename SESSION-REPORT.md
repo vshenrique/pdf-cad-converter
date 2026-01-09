@@ -17,8 +17,9 @@ Successfully implemented and tested a PDF-to-JPEG conversion service for CAD dra
 | Core conversion | ✅ Complete | Multi-page PDFs working |
 | File watcher | ✅ Complete | Detects new files AND file replacements |
 | PM2 service | ✅ Running | Auto-start configured |
-| Docker setup | ✅ Complete | Dockerfile + docker-compose.yml |
-| Documentation | ✅ Complete | Ubuntu, Windows, Docker guides |
+| Docker setup | ✅ Complete | Dockerfile + docker-compose.yml + test config |
+| Docker tested | ✅ Tested on Ubuntu | Docker 29.1.4 + Compose v5.0.1 |
+| Documentation | ✅ Complete | Ubuntu, Windows, Docker guides (updated) |
 | Multi-page bug fix | ✅ Fixed | Stability check increased to 2 seconds |
 | Cleanup on replace | ✅ Fixed | Old JPEGs deleted when PDF updated |
 
@@ -39,12 +40,14 @@ Successfully implemented and tested a PDF-to-JPEG conversion service for CAD dra
 |------|---------|
 | `Dockerfile` | Container image definition (Node 18 + Poppler) |
 | `docker-compose.yml` | Multi-container orchestration |
+| `docker-compose.test.yml` | **NEW** Test environment with local folders |
+| `docker-compose.windows.yml` | Windows-specific docker-compose template |
 | `.dockerignore` | Build optimization |
 | `UBUNTU-INSTALL.md` | Ubuntu/Debian deployment guide |
 | `WINDOWS-INSTALL.md` | Windows Server deployment guide |
-| `DOCKER-DEPLOYMENT.md` | Docker deployment guide (Linux/Unix) |
-| `DOCKER-WINDOWS.md` | **NEW** Docker on Windows deployment guide |
-| `docker-compose.windows.yml` | **NEW** Windows-specific docker-compose template |
+| `DOCKER-DEPLOYMENT.md` | Docker deployment guide (Linux/Unix) - **UPDATED** |
+| `DOCKER-WINDOWS.md` | Docker on Windows deployment guide |
+| `README.md` | **UPDATED** - Installation tabs, Protheus integration |
 
 ---
 
@@ -218,7 +221,8 @@ sudo env PATH=$PATH:/home/vshconsulting/.nvm/versions/node/v20.18.3/bin /usr/lib
 ### For Docker Deployment
 | Task | Status |
 |------|--------|
-| Test Docker build | Pending |
+| Test Docker build | ✅ Complete |
+| Install Docker on Ubuntu | ✅ Complete (Docker 29.1.4) |
 | Deploy to production server | Pending |
 
 ### For Windows + Docker Deployment (NEW)
@@ -339,15 +343,22 @@ Output JPEGs:           ABC123_01_1.jpg, ABC123_01_2.jpg, etc.
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| Node.js | 18+ | Runtime |
+| Node.js | 20.18.3 | Runtime |
 | Poppler | 24.02.0 | PDF to image conversion |
+| Docker | 29.1.4 | Container runtime |
+| Docker Compose | v5.0.1 | Container orchestration |
 | npm packages | See package.json | - |
 | PM2 | 6.0.14 | Process manager |
 
 **System dependencies:**
 ```bash
-sudo apt install poppler-utils  # Ubuntu/Debian
-sudo npm install -g pm2            # Process manager
+# Ubuntu/Debian
+sudo apt install poppler-utils  # Poppler for PDF conversion
+sudo npm install -g pm2          # Process manager
+
+# Docker (Ubuntu)
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER    # Add user to docker group
 ```
 
 ---
@@ -356,9 +367,10 @@ sudo npm install -g pm2            # Process manager
 
 1. **Remove debug logging** - Clean up `console.log` from `pdfConverter.js`
 2. **Windows deployment** - Install on Windows Server for production
-3. **Docker testing** - Test container build and deployment
+3. ~~**Docker testing**~~ - ✅ Completed (Docker 29.1.4 installed and tested)
 4. **Protheus configuration** - Set `MV_XIMGPF` parameter in Protheus
 5. **Network folder setup** - Configure shared folder for CAD team access
+6. **Docker production deployment** - Deploy container to production server
 
 ---
 
@@ -370,7 +382,58 @@ Watch folder:   /home/vshconsulting/Documents/clients/slt
 Output folder:  /home/vshconsulting/Documents/clients/slt/cad_jpeg
 Logs:           ./logs/ (in project folder)
 PM2 dump:       /home/vshconsulting/.pm2/dump.pm2
+Docker test:    ./docker-test/ (for local testing)
 ```
+
+---
+
+## Docker Testing (Session 2 - 2025-01-09)
+
+### Installation
+
+Docker was installed on Ubuntu 24.04:
+```bash
+# Added Docker's official GPG key and repository
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Added user to docker group
+sudo usermod -aG docker $USER
+```
+
+### Versions Installed
+
+| Component | Version |
+|-----------|---------|
+| Docker | 29.1.4 |
+| Docker Compose | v5.0.1 |
+
+### Test Environment Created
+
+Created `docker-compose.test.yml` for local testing:
+```yaml
+volumes:
+  - /home/vshconsulting/.../docker-test/watch:/app/watch
+  - /home/vshconsulting/.../docker-test/output:/app/output
+  - /home/vshconsulting/.../docker-test/logs:/app/logs
+```
+
+### Key Learning - Docker Compose Commands
+
+| Version | Command |
+|---------|---------|
+| v1 (old) | `docker-compose` |
+| v2 (new) | `docker compose` |
+
+**Note:** All documentation updated to use v2 syntax (`docker compose` without hyphen).
+
+### Documentation Updates
+
+| File | Changes |
+|------|---------|
+| `DOCKER-DEPLOYMENT.md` | Added Docker installation steps, permission fix, test section |
+| `.gitignore` | Added `docker-test/` folder |
+| `README.md` | Added installation tabs, Protheus integration section |
+| `SESSION-REPORT.md` | Updated with Docker testing info |
 
 ---
 

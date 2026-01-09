@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  pdf-converter:
+    build: .
+    container_name: pdf-converter-test
+    restart: unless-stopped
+
+    volumes:
+      - /home/vshconsulting/Documents/protheus/codes/slt/pdf-converter/docker-test/watch:/app/watch
+      - /home/vshconsulting/Documents/protheus/codes/slt/pdf-converter/docker-test/output:/app/output
+      - /home/vshconsulting/Documents/protheus/codes/slt/pdf-converter/docker-test/logs:/app/logs
+
+    environment:
+      - WATCH_FOLDER=/app/watch
+      - OUTPUT_FOLDER=/app/output
+      - LOG_FOLDER=/app/logs
+      - LOG_LEVEL=info
+      - JPEG_QUALITY=90
+      - DPI=300

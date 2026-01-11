@@ -14,6 +14,7 @@ Integrado com Protheus ERP para impressão de desenhos técnicos em ordens de pr
 - Suporte a multi-páginas (todas as páginas são convertidas)
 - Suporte a tamanhos variados (A4, A3, A2, A1, landscape)
 - Detecção de substituição de arquivos (reprocessa PDFs atualizados)
+- **Processamento de arquivos existentes no startup** (apenas PDFs sem imagens)
 - Auto-restart em caso de falha (PM2)
 - Cross-platform (Windows, Linux, Docker)
 
@@ -77,6 +78,9 @@ Edite o arquivo `.env` com as seguintes variáveis:
 | `DPI` | Resolução da conversão | 300 |
 | `LOG_LEVEL` | Nível de log (error, warn, info, debug) | info |
 | `LOG_FOLDER` | Pasta para logs | ./logs |
+| `USE_POLLING` | Força polling para file watching (true/false) | Auto* |
+
+\* **Auto**: `true` no Windows, `false` no Linux. Use `true` para Docker volumes ou pastas de rede.
 
 ### Exemplo de configuração (.env)
 ```bash

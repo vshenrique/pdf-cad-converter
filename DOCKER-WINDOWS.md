@@ -120,6 +120,7 @@ services:
       - LOG_LEVEL=info
       - JPEG_QUALITY=90
       - DPI=300
+      - USE_POLLING=true  # Necessario para Docker volumes no Windows/WSL2
 
     # Resource limits
     deploy:

@@ -58,6 +58,7 @@ OUTPUT_FOLDER=/app/output
 LOG_LEVEL=info
 JPEG_QUALITY=90
 DPI=300
+USE_POLLING=false  # Use true para pastas de rede/NFS
 ```
 
 ### 3. Build e Start

@@ -38,6 +38,19 @@ async function waitForFileReady(filePath, maxWait = 30000) {
 }
 
 /**
+ * Verifica se ja existem imagens JPEG para um PDF
+ */
+async function hasExistingImages(baseName, outputFolder) {
+    try {
+        const files = await fs.readdir(outputFolder);
+        const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_\\d+\\.jpg$`);
+        return files.some(file => pattern.test(file));
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
  * Remove JPEGs antigos de um PDF antes de reprocessar
  * Isso evita que paginas antigas permanecam quando o PDF e atualizado
  */
@@ -60,8 +73,12 @@ async function cleanupOldImages(baseName, outputFolder) {
 
 /**
  * Processa um arquivo PDF
+ * @param {string} filePath - Caminho do PDF
+ * @param {object} config - Configuracao
+ * @param {number} retries - Numero de tentativas
+ * @param {boolean} skipCleanup - Pula limpeza de imagens antigas (para arquivos existentes)
  */
-async function processFile(filePath, config, retries = 0) {
+async function processFile(filePath, config, retries = 0, skipCleanup = false) {
     const fileName = path.basename(filePath);
     const baseName = path.basename(filePath, path.extname(filePath));
 
@@ -83,8 +100,10 @@ async function processFile(filePath, config, retries = 0) {
             return;
         }
 
-        // Limpa imagens antigas antes de processar (evita paginas sobrando)
-        await cleanupOldImages(baseName, config.outputFolder);
+        // Limpa imagens antigas apenas se nao for arquivo existente
+        if (!skipCleanup) {
+            await cleanupOldImages(baseName, config.outputFolder);
+        }
 
         // Processa o PDF
         const result = await processPdf(
@@ -132,21 +151,38 @@ function startWatcher(config) {
     // Configura o watcher
     const watcher = chokidar.watch(watchPath, {
         persistent: true,
-        ignoreInitial: true, // Não processa arquivos existentes
+        ignoreInitial: false, // Processa arquivos existentes na inicializacao
         awaitWriteFinish: {
             stabilityThreshold: 2000,
             pollInterval: 100
         },
         ignored: /(^|[\/\\])\../, // Ignora arquivos ocultos
-        usePolling: process.platform === 'win32' // Usa polling no Windows para rede
+        usePolling: process.env.USE_POLLING === 'true' || process.platform === 'win32' // Configuravel via env USE_POLLING
     });
 
+    // Flag para identificar arquivos iniciais (existente no startup)
+    let isInitialScan = true;
+
     // Evento: arquivo adicionado
-    watcher.on('add', (filePath) => {
+    watcher.on('add', async (filePath) => {
         // Processa apenas PDFs
         if (path.extname(filePath).toLowerCase() === '.pdf') {
-            logger.info(`Novo PDF detectado: ${path.basename(filePath)}`);
-            processFile(filePath, config).catch(err => {
+            const fileName = path.basename(filePath);
+            const baseName = path.basename(filePath, path.extname(filePath));
+
+            // Para arquivos existentes, verifica se ja tem imagens
+            if (isInitialScan) {
+                const hasImages = await hasExistingImages(baseName, config.outputFolder);
+                if (hasImages) {
+                    logger.info(`PDF existente ja processado: ${fileName} (ignorando)`);
+                    return;
+                }
+                logger.info(`PDF existente sem imagens: ${fileName} (processando)`);
+            } else {
+                logger.info(`Novo PDF detectado: ${fileName}`);
+            }
+
+            processFile(filePath, config, 0, isInitialScan).catch(err => {
                 logger.error(`Erro no processamento: ${err.message}`);
             });
         }
@@ -167,6 +203,7 @@ function startWatcher(config) {
 
     // Evento: watcher pronto
     watcher.on('ready', () => {
+        isInitialScan = false; // Finaliza scan inicial, novos arquivos serao processados normalmente
         logger.info('Monitoramento ativo. Aguardando novos arquivos PDF...');
     });
 
